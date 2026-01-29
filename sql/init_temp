@@ -3,12 +3,7 @@ CREATE TABLE jobs_raw (
 	job_title TEXT,
 	company TEXT,
 	salary TEXT,
-	min_salary BIGINT,
-	max_salary BIGINT,
-	salary_unit TEXT,
 	address TEXT,
-	city TEXT,
-	district TEXT,
 	time TEXT,
 	link_description TEXT
-)
+);
