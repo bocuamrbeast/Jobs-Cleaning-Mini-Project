@@ -1,0 +1,13 @@
+CREATE TABLE jobs_cleaned (
+	created_date DATE,
+	job_title TEXT,
+	company TEXT,
+	salary TEXT,
+	min_salary BIGINT,
+	max_salary BIGINT,
+	salary_unit TEXT,
+	city TEXT,
+	district TEXT,
+	time TEXT,
+	link_description TEXT
+)
