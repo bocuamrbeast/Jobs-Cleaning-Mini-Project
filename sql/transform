@@ -1,0 +1,90 @@
+ALTER TABLE jobs_raw
+ADD COLUMN IF NOT EXISTS min_salary NUMERIC,
+ADD COLUMN IF NOT EXISTS max_salary NUMERIC,
+ADD COLUMN IF NOT EXISTS salary_unit TEXT,
+ADD COLUMN IF NOT EXISTS city TEXT,
+ADD COLUMN IF NOT EXISTS district TEXT;
+
+UPDATE jobs_raw
+SET 
+	min_salary = REPLACE(SPLIT_PART(salary, ' - ', 1), ',', '')::FLOAT,
+	max_salary = REPLACE(SPLIT_PART(SPLIT_PART(salary, ' - ', 2), ' ', 1), ',', '')::FLOAT
+WHERE salary LIKE '% - %';
+
+UPDATE jobs_raw
+SET
+	min_salary = REPLACE(SPLIT_PART(salary, ' ', 2), ',', '')::FLOAT
+WHERE salary LIKE 'Trên%';
+
+UPDATE jobs_raw
+SET
+	max_salary = REPLACE(SPLIT_PART(salary, ' ', 2), ',', '')::FLOAT
+WHERE salary LIKE 'Tới%';
+
+UPDATE jobs_raw
+SET
+	salary_unit =
+		CASE 
+			WHEN salary = 'Thỏa thuận' THEN NULL
+			WHEN salary LIKE '% USD' THEN 'USD'
+			ELSE 'VND'
+		END;
+
+UPDATE jobs_raw
+SET 
+    min_salary = min_salary * 1000000,
+    max_salary = max_salary * 1000000
+WHERE salary_unit = 'VND';
+
+DROP TABLE IF EXISTS jobs_location;
+
+CREATE TABLE jobs_location AS
+SELECT
+    j.created_date,
+    j.job_title,
+    j.company,
+    j.salary,
+    j.min_salary,
+    j.max_salary,
+    j.salary_unit,
+    j.time,
+    j.link_description,
+
+    trim(parts[idx])      AS city,
+    trim(parts[idx + 1])  AS district
+
+FROM jobs_raw j
+CROSS JOIN LATERAL (
+    SELECT string_to_array(j.address, ':') AS parts
+) a
+CROSS JOIN LATERAL (
+    SELECT generate_series(1, array_length(a.parts, 1), 2) AS idx
+) s;
+
+DROP TABLE IF EXISTS jobs_transformed;
+
+CREATE TABLE jobs_transformed AS
+SELECT
+    j.created_date,
+	
+    COALESCE(m.job_group, 'Other') AS job_group,
+	
+    j.job_title,
+    j.company,
+
+    j.salary,
+    j.min_salary,
+    j.max_salary,
+    j.salary_unit,
+
+    j.city,
+    j.district,
+
+    j.time,
+    j.link_description
+
+FROM jobs_location j
+LEFT JOIN job_title_mapping m
+    ON LOWER(j.job_title) LIKE '%' || m.keyword || '%';
+
+SELECT * FROM jobs_transformed;
