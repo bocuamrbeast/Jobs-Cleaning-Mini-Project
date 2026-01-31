@@ -48,7 +48,7 @@ def load_data():
 
     temp_cur.execute("""
     TRUNCATE TABLE jobs_raw;
-    TRUNCATE TABLE jobs_transformed;
+    DROP TABLE jobs_transformed;
     """)
 
     temp_conn.commit()

@@ -35,37 +35,47 @@ SET
     max_salary = max_salary * 1000000
 WHERE salary_unit = 'VND';
 
+UPDATE jobs_salary
+SET
+    salary_unit = 'VND'
+WHERE min_salary > 1000000 OR max_salary > 1000000;
+
 CREATE TABLE jobs_location AS
+WITH split_parts AS (
+    SELECT
+        j.*,
+        string_to_array(address, ':') AS parts
+    FROM jobs_salary j
+),
+indexed_parts AS (
+    SELECT
+        s.*,
+        trim(p.part) AS current_val,
+        p.idx
+    FROM split_parts s
+    CROSS JOIN LATERAL unnest(s.parts) WITH ORDINALITY AS p(part, idx)
+)
 SELECT
-    j.created_date,
-    j.job_title,
-    j.company,
-    j.salary,
-    j.min_salary,
-    j.max_salary,
-    j.salary_unit,
-    j.time,
-    j.link_description,
-
-    trim(parts[idx])      AS city,
-    trim(parts[idx + 1])  AS district
-
-FROM jobs_salary j
-CROSS JOIN LATERAL (
-    SELECT string_to_array(j.address, ':') AS parts
-) a
-CROSS JOIN LATERAL (
-    SELECT generate_series(1, array_length(a.parts, 1), 2) AS idx
-) s;
+    i.created_date, i.job_title, i.company, i.salary,
+    i.min_salary, i.max_salary, i.salary_unit,
+    i.time, i.link_description, i.address,
+    i.current_val AS city,
+    CASE
+        WHEN trim(i.parts[i.idx + 1]) NOT IN (SELECT province_name FROM vn_provinces)
+        THEN trim(i.parts[i.idx + 1])
+        ELSE NULL
+    END AS district
+FROM indexed_parts i
+WHERE i.current_val IN (SELECT province_name FROM vn_provinces);
 
 DROP TABLE IF EXISTS jobs_transformed;
 
 CREATE TABLE jobs_transformed AS
 SELECT
     j.created_date,
-	
+
     COALESCE(m.job_group, 'Other') AS job_group,
-	
+
     j.job_title,
     j.company,
 

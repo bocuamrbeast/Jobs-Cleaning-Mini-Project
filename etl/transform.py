@@ -1,5 +1,4 @@
 import psycopg2
-import os
 from config import TEMP_DB
 
 TRANSFORM_PATH = "sql/transform"
