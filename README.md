@@ -1,4 +1,4 @@
-# Jobs Data Cleaning Mini Project
+# 💼 Jobs Data Cleaning Mini Project
 
 An automated ETL pipeline designed to extract, clean, and analyze job market data using **Apache Airflow** and **PostgreSQL**.
 
