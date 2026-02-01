@@ -1,7 +1,10 @@
 import psycopg2
+import os
 from config import TEMP_DB
 
-TRANSFORM_PATH = "sql/transform"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(BASE_DIR)
+TRANSFORM_PATH = os.path.join(BASE_DIR, "sql", "transform")
 
 def transform_data():
     print("Transforming data...")
