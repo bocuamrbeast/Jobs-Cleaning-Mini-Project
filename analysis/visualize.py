@@ -1,31 +1,31 @@
+import warnings
+warnings.filterwarnings('ignore')
+
 import psycopg2
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sqlalchemy import create_engine
 from config import WAREHOUSE_DB
 
-def get_engine():
-    conn_str = f"postgresql://{WAREHOUSE_DB['user']}:{WAREHOUSE_DB['password']}@{WAREHOUSE_DB['host']}:{WAREHOUSE_DB['port']}/{WAREHOUSE_DB['database']}"
-    return create_engine(conn_str)
+def get_connection():
+    return psycopg2.connect(**WAREHOUSE_DB)
 
-def plot_salary_stacked_bar(engine):
+def plot_salary_stacked_bar(conn):
     query = """
-            SELECT 
-                job_group,
-                AVG(
-                    CASE
-                        WHEN salary_unit = 'USD' THEN min_salary * 25000
-                        ELSE min_salary
-                    END
-                ) / 1000000 AS avg_min_tr,
-                AVG(
-                    CASE
-                        WHEN salary_unit = 'USD' THEN max_salary * 25000
-                        ELSE max_salary
-                    END
-                ) / 1000000 AS avg_max_tr
-            
+            SELECT job_group,
+                   AVG(
+                           CASE
+                               WHEN salary_unit = 'USD' THEN min_salary * 25000
+                               ELSE min_salary
+                               END
+                   ) / 1000000 AS avg_min_tr,
+                   AVG(
+                           CASE
+                               WHEN salary_unit = 'USD' THEN max_salary * 25000
+                               ELSE max_salary
+                               END
+                   ) / 1000000 AS avg_max_tr
+
             FROM jobs_cleaned
             WHERE min_salary IS NOT NULL
               AND max_salary IS NOT NULL
@@ -33,7 +33,7 @@ def plot_salary_stacked_bar(engine):
             ORDER BY avg_max_tr DESC;
             """
 
-    df_grouped = pd.read_sql(query, engine)
+    df_grouped = pd.read_sql_query(query, conn)
     df_grouped['diff'] = df_grouped['avg_max_tr'] - df_grouped['avg_min_tr']
 
     plt.figure(figsize=(12, 7))
@@ -55,9 +55,9 @@ def plot_salary_stacked_bar(engine):
     plt.show()
 
 
-def plot_vietnam_heatmap(engine):
+def plot_vietnam_heatmap(conn):
     query = "SELECT city, COUNT(*) AS total_jobs FROM jobs_cleaned GROUP BY city"
-    df = pd.read_sql(query, engine)
+    df = pd.read_sql_query(query, conn)
 
     val_toan_quoc = df[df['city'] == 'Toàn quốc']['total_jobs'].sum()
     df_filtered = df[~df['city'].isin(['Toàn quốc', 'Nước ngoài'])].copy()
@@ -81,9 +81,9 @@ def plot_vietnam_heatmap(engine):
     plt.show()
 
 
-def plot_job_trend_bar(engine):
+def plot_job_trend_bar(conn):
     query = "SELECT job_group, COUNT(*) AS total FROM jobs_cleaned GROUP BY job_group ORDER BY total DESC"
-    df = pd.read_sql(query, engine)
+    df = pd.read_sql_query(query, conn)
 
     plt.figure(figsize=(12, 6))
     sns.barplot(data=df, x="total", y="job_group", hue="job_group", palette="magma", legend=False)
@@ -96,11 +96,16 @@ def plot_job_trend_bar(engine):
 
 
 if __name__ == "__main__":
+    conn = None
     try:
-        engine = get_engine()
-        plot_salary_stacked_bar(engine)
-        plot_vietnam_heatmap(engine)
-        plot_job_trend_bar(engine)
+        conn = get_connection()
+        plot_salary_stacked_bar(conn)
+        plot_vietnam_heatmap(conn)
+        plot_job_trend_bar(conn)
         print("Finished visualizing data.")
     except Exception as e:
         print(f"Error: {e}")
+    finally:
+        if conn:
+            conn.close()
+            print("Database connection closed.")
